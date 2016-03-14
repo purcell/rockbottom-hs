@@ -89,7 +89,7 @@ readCave rows = Right $ Cave contents
   where
     contents = M.fromList positions
     positions = concatMap f (zip rows [0..])
-      where f (line, y) = map g (zip line [0..])
+      where f (line, y) = zipWith (curry g) line [0..]
               where g (ch, x) = ((x, y), fromJust (elementFromChar ch))
 
 instance Show Depth where
@@ -135,8 +135,8 @@ data Problem = Problem { problemWaterUnits :: Int
                        , problemCave       :: Cave }
              deriving Show
 
-readProblem :: String -> Either String Problem
-readProblem input =
+parseProblem :: String -> Either String Problem
+parseProblem input =
   case lines input of
     (num:("":rest)) ->
        return . Problem (read num) =<< readCave rest
@@ -145,13 +145,14 @@ readProblem input =
 solve :: Problem -> Cave
 solve p = flowN (problemWaterUnits p - 1) (problemCave p)
 
+simpleCave :: IO Cave
 simpleCave = do
-  Right prob <- readProblem <$> readFile "examples/simple_cave.txt"
-  return $ problemCave prob
+  Right prob <- parseProblem <$> readFile "examples/simple_cave.txt"
+  return (problemCave prob)
 
 solveFile :: FilePath -> IO ()
 solveFile file = do
-  problem <- readProblem <$> readFile file
+  problem <- parseProblem <$> readFile file
   case problem of
     Left err -> die err
     Right prob ->
