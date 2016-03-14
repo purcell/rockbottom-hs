@@ -1,9 +1,11 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
+import           Data.List          (find, group)
 import           Data.Map           (Map)
 import qualified Data.Map           as M
 import           Data.Maybe         (fromJust)
+import           Data.Tuple         (swap)
 import           System.Environment (getArgs)
 import           System.Exit        (die)
 
@@ -20,13 +22,23 @@ data Cave = Cave { caveContents :: Map Coord Element }
 elementAt :: Cave -> Coord -> Element
 elementAt cave coord = M.findWithDefault Empty coord (caveContents cave)
 
+caveBottomRight :: Cave -> (Int, Int)
+caveBottomRight cave = (xmax, ymax)
+  where
+    (xmax, ymax) = swap . maximum $ swap <$> coords
+    coords = M.keys (caveContents cave)
+
 caveRows :: Cave -> [[Element]]
 caveRows cave = map row [0..ymax]
   where
     row y = map (elementAt cave . (,y)) [0..xmax]
-    xmax = maximum $ fst <$> coords
-    ymax = maximum $ snd <$> coords
-    coords = M.keys (caveContents cave)
+    (xmax, ymax) = caveBottomRight cave
+
+caveColumns :: Cave -> [[Element]]
+caveColumns cave = map col [0..xmax]
+  where
+    col x = map (elementAt cave . (x,)) [0..ymax]
+    (xmax, ymax) = caveBottomRight cave
 
 waterPositions :: Cave -> [Coord]
 waterPositions cave = [ pos | (pos, el) <- M.toList (caveContents cave), el == Water ]
@@ -37,8 +49,19 @@ below (x, y) = (x, y + 1)
 right :: Coord -> Coord
 right (x, y) = (x + 1, y)
 
-caveDepths :: Cave -> [Int]
-caveDepths = undefined
+data Depth = Flowing | Depth Int
+
+caveDepths :: Cave -> [Depth]
+caveDepths = map summarise . caveColumns
+  where
+    summarise cells = case waterAndBelow of
+      [] -> Depth 0
+      w:rest -> case find (are Empty) rest of
+        Just _  -> Flowing
+        Nothing -> Depth (length w)
+      where
+        waterAndBelow = dropWhile (not . are Water) $ group cells
+        are el = (el ==) . head
 
 ------------------------------------------------------------------------------
 -- Read and write caves
@@ -67,6 +90,10 @@ readCave rows = Right $ Cave contents
     positions = concatMap f (zip rows [0..])
       where f (line, y) = map g (zip line [0..])
               where g (ch, x) = ((x, y), fromJust (elementFromChar ch))
+
+instance Show Depth where
+  show Flowing = "~"
+  show (Depth n)  = show n
 
 ------------------------------------------------------------------------------
 -- Flowing water
@@ -126,7 +153,10 @@ solveFile file = do
   problem <- readProblem <$> readFile file
   case problem of
     Left err -> die err
-    Right prob -> print $ solve prob
+    Right prob ->
+      let solved = solve prob in do
+        print solved
+        putStrLn $ unwords (show <$> caveDepths solved)
 
 main :: IO ()
 main = do
