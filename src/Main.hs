@@ -8,6 +8,7 @@ import           Data.Maybe         (fromJust)
 import           Data.Tuple         (swap)
 import           System.Environment (getArgs)
 import           System.Exit        (die)
+import           System.IO          (hPrint, stderr)
 
 ------------------------------------------------------------------------------
 -- Cave layout
@@ -155,7 +156,7 @@ solveFile file = do
     Left err -> die err
     Right prob ->
       let solved = solve prob in do
-        print solved
+        hPrint stderr solved
         putStrLn $ unwords (show <$> caveDepths solved)
 
 main :: IO ()
